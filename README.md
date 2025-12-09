@@ -70,21 +70,99 @@ In advanced stages, the focus shifts to improving query performance. Some optimi
 
 ### Easy Level
 1. Retrieve the names of all tracks that have more than 1 billion streams.
+```sql
+SELECT *
+FROM spotify
+WHERE stream > 1000000000;
+```
 2. List all albums along with their respective artists.
+```sql
+SELECT 
+	DISTINCT album, artist
+FROM spotify
+ORDER BY 1;
+```
 3. Get the total number of comments for tracks where `licensed = TRUE`.
-4. Find all tracks that belong to the album type `single`.
-5. Count the total number of tracks by each artist.
-
+```sql
+SELECT SUM(comments)
+FROM spotify
+WHERE licensed = true;
+```
+5. Find all tracks that belong to the album type `single`.
+```sql
+SELECT *
+FROM spotify
+WHERE album_type = 'single';
+```
+6. Count the total number of tracks by each artist.
+```sql
+SELECT artist, COUNT(track) AS total_no_songs
+FROM spotify
+GROUP BY artist
+ORDER BY COUNT(track) DESC;
+```
 ### Medium Level
 1. Calculate the average danceability of tracks in each album.
-2. Find the top 5 tracks with the highest energy values.
-3. List all tracks along with their views and likes where `official_video = TRUE`.
-4. For each album, calculate the total views of all associated tracks.
-5. Retrieve the track names that have been streamed on Spotify more than YouTube.
+```sql
+SELECT album, AVG(danceability)
+FROM spotify
+GROUP BY 1
+ORDER BY 2 DESC;
+```
 
+2. Find the top 5 tracks with the highest energy values.
+```sql
+SELECT DISTINCT track, AVG(energy)
+FROM spotify
+GROUP BY track
+ORDER BY 2
+LIMIT 5;
+```
+3. List all tracks along with their views and likes where `official_video = TRUE`.
+```sql
+SELECT DISTINCT track, SUM(views) AS total_views, SUM(likes) AS total_likes
+FROM spotify
+WHERE official_video = true
+GROUP BY DISTINCT track;
+```
+4. For each album, calculate the total views of all associated tracks.
+```sql
+SELECT album, track, SUM(views) AS total_views
+FROM spotify
+GROUP BY album, track
+ORDER BY 1;
+```
+5. Retrieve the track names that have been streamed on Spotify more than YouTube.
+```sql
+SELECT * FROM
+(SELECT track,
+		COALESCE(SUM(CASE WHEN most_played_on = 'Spotify' THEN stream END),0) AS stream_on_spotify,
+		COALESCE(SUM(CASE WHEN most_played_on = 'Youtube' THEN stream END),0) AS stream_on_youtube
+FROM spotify
+GROUP BY 1)
+WHERE stream_on_spotify > stream_on_youtube
+	  AND stream_on_youtube <> 0;
+```
 ### Advanced Level
 1. Find the top 3 most-viewed tracks for each artist using window functions.
-2. Write a query to find tracks where the liveness score is above the average.
+```sql
+SELECT * FROM
+(SELECT track, artist, SUM(views), DENSE_RANK() OVER(PARTITION BY artist ORDER BY SUM(VIEWS) DESC) AS song_rank
+FROM spotify
+GROUP BY 1, 2
+ORDER BY 2)
+WHERE song_rank <= 3
+ORDER BY artist;
+```
+2. Write a query to find tracks where the liveness score is above the average
+```sql
+SELECT track
+FROM spotify
+WHERE liveness > (
+	SELECT AVG(liveness)
+	FROM spotify);
+```
+
 3. **Use a `WITH` clause to calculate the difference between the highest and lowest energy values for tracks in each album.**
 ```sql
 WITH cte
@@ -103,9 +181,24 @@ FROM cte
 ORDER BY 2 DESC
 ```
    
-5. Find tracks where the energy-to-liveness ratio is greater than 1.2.
-6. Calculate the cumulative sum of likes for tracks ordered by the number of views, using window functions.
+4. Find tracks where the energy-to-liveness ratio is greater than 1.2.
+```sql
+SELECT *
+FROM (
+    SELECT track,
+           CASE WHEN liveness = 0 THEN NULL
+                ELSE energy / liveness
+           END AS energy_to_liveness_ratio
+    FROM spotify
+) AS t
+WHERE energy_to_liveness_ratio > 1.2;
 
+```
+5. Calculate the cumulative sum of likes for tracks ordered by the number of views, using window functions.
+```sql
+SELECT track, SUM(likes)OVER(ORDER BY views) 
+FROM spotify;
+```
 
 Here’s an updated section for your **Spotify Advanced SQL Project and Query Optimization** README, focusing on the query optimization task you performed. You can include the specific screenshots and graphs as described.
 
